@@ -3,8 +3,9 @@ from http import HTTPStatus
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.constants import HTTPDetail
+from app.core.constants import MAX_NAME_LENGTH, MIN_NAME_LENGTH, HTTPDetail
 from app.crud import charity_project_crud
+from app.crud.base import CRUDBase
 from app.models import CharityProject
 
 
@@ -74,7 +75,7 @@ async def check_charity_project_name(
             status_code=HTTPStatus.BAD_REQUEST,
             detail=HTTPDetail.DUPLICATE_PROJECT_NAME
         )
-    if not 1 <= len(project_name) <= 100:
+    if not MIN_NAME_LENGTH <= len(project_name) <= MAX_NAME_LENGTH:
         raise HTTPException(
             status_code=HTTPStatus.UNPROCESSABLE_ENTITY,
             detail=HTTPDetail.INVALID_PROJECT_NAME_LENGTH
@@ -88,4 +89,18 @@ async def check_full_amount(
         raise HTTPException(
             status_code=HTTPStatus.UNPROCESSABLE_ENTITY,
             detail=HTTPDetail.INVALID_PROJECT_AMOUNT
+        )
+
+
+async def check_invested_amount(
+        invested_amount: int,
+        db_obj,
+        model,
+        session: AsyncSession,
+) -> None:
+    obj_crud = CRUDBase(model)
+    if invested_amount > 0:
+        db_obj_id = db_obj.id
+        await obj_crud.update_invested_amount(
+            db_obj_id, invested_amount, session
         )

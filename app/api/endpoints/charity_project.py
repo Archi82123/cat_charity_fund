@@ -3,12 +3,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.validators import (check_charity_project_before_edit,
                                 check_charity_project_name, check_full_amount,
+                                check_invested_amount,
                                 check_invested_amount_before_delete,
                                 check_project_exist)
 from app.core.db import get_async_session
 from app.core.user import current_superuser
 from app.crud.charity_project import charity_project_crud
-from app.models import Donation
+from app.models import CharityProject, Donation
 from app.schemas.charity_project import (CharityProjectCreate,
                                          CharityProjectDB,
                                          CharityProjectUpdate)
@@ -35,11 +36,12 @@ async def create_charity_project(
     new_charity_project = await charity_project_crud.create(
         charity_project, session
     )
-    if invested_amount > 0:
-        new_charity_project_id = new_charity_project.id
-        await charity_project_crud.update_invested_amount(
-            new_charity_project_id, invested_amount, session
-        )
+    await check_invested_amount(
+        invested_amount,
+        new_charity_project,
+        CharityProject,
+        session
+    )
     return new_charity_project
 
 
@@ -51,8 +53,7 @@ async def create_charity_project(
 async def get_all_charity_projects(
         session: AsyncSession = Depends(get_async_session)
 ):
-    charity_projects = await charity_project_crud.get_multi(session)
-    return charity_projects
+    return await charity_project_crud.get_multi(session)
 
 
 @router.delete(
@@ -69,10 +70,9 @@ async def delete_charity_project(
         project_id, session
     )
     await check_invested_amount_before_delete(project_id, session)
-    charity_project = await charity_project_crud.remove(
+    return await charity_project_crud.remove(
         charity_project, session
     )
-    return charity_project
 
 
 @router.patch(
@@ -95,9 +95,8 @@ async def update_charity_project(
         )
     if obj_in.name:
         await check_charity_project_name(obj_in.name, session)
-    charity_project = await charity_project_crud.update(
+    return await charity_project_crud.update(
         db_obj=charity_project,
         obj_in=obj_in,
         session=session,
     )
-    return charity_project
